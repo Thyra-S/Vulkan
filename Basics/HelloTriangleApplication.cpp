@@ -60,7 +60,7 @@ void HelloTriangleApplication::createInstance()
 	// Check if the required extensions are supported by the Vulkan implementation.
 	auto extensionProperties = context.enumerateInstanceExtensionProperties();
 	auto unsupportedPropertyIt = std::ranges::find_if(
-		requiredExtensions, extensionProperties](auto const& requiredExtension) 
+		requiredExtensions, [extensionProperties](auto const& requiredExtension) 
 		{return std::ranges::none_of(extensionProperties, [requiredExtension](auto const& extensionProperty) 
 				{ return strcmp(extensionProperty.extensionName, requiredExtension) == 0; });
 	});
@@ -147,7 +147,7 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL HelloTriangleApplication::debugCallback(vk::Deb
 	vk::DebugUtilsMessageTypeFlagsEXT type, const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void*)
 {
 	if (severity == vk::DebugUtilsMessageSeverityFlagBitsEXT::eError 
-		|| severity == vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
+	 || severity == vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning)
 	{
 		std::cerr << "validation layer: type " << to_string(type) << " msg: " << pCallbackData->pMessage << std::endl;
 	}
