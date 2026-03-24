@@ -1,7 +1,5 @@
 #include "HelloTriangleApplication.h"
 
-/*---------- CLASS METHODS ----------*/
-
 /*---------- INTIALIZATION / CLEANUP METHODS ----------*/
 
 // Initialize GLFW window
@@ -44,10 +42,12 @@ void HelloTriangleApplication::createInstance()
 
 	// Check if the required layers are supported by the Vulkan implementation.
 	auto layerProperties = context.enumerateInstanceLayerProperties();
-	auto unsupportedLayerIt = std::ranges::find_if(requiredLayers,
-		[&layerProperties](auto const& requiredLayer) {
-			return std::ranges::none_of(layerProperties,
-				[requiredLayer](auto const& layerProperty) { return strcmp(layerProperty.layerName, requiredLayer) == 0; });
+	auto unsupportedLayerIt = std::ranges::find_if(requiredLayers, [&layerProperties](auto const& requiredLayer) 
+		{
+			return std::ranges::none_of(layerProperties, [requiredLayer](auto const& layerProperty) 
+				{ 
+					return strcmp(layerProperty.layerName, requiredLayer) == 0; 
+				});
 		});
 	if (unsupportedLayerIt != requiredLayers.end())
 	{
@@ -59,11 +59,13 @@ void HelloTriangleApplication::createInstance()
 
 	// Check if the required extensions are supported by the Vulkan implementation.
 	auto extensionProperties = context.enumerateInstanceExtensionProperties();
-	auto unsupportedPropertyIt = std::ranges::find_if(
-		requiredExtensions, [extensionProperties](auto const& requiredExtension) 
-		{return std::ranges::none_of(extensionProperties, [requiredExtension](auto const& extensionProperty) 
-				{ return strcmp(extensionProperty.extensionName, requiredExtension) == 0; });
-	});
+	auto unsupportedPropertyIt = std::ranges::find_if(requiredExtensions, [extensionProperties](auto const& requiredExtension) 
+		{
+			return std::ranges::none_of(extensionProperties, [requiredExtension](auto const& extensionProperty) 
+				{ 
+					return strcmp(extensionProperty.extensionName, requiredExtension) == 0; 
+				});
+		});
 
 	if (unsupportedPropertyIt != requiredExtensions.end())
 	{
@@ -95,6 +97,21 @@ std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions
 
 	return extensions;
 }
+/*---------- PHYSICAL DEVICE METHODS ----------*/
+
+// Pick a physical device (GPU) that supports Vulkan
+void HelloTriangleApplication::pickPhysicalDevice() 
+{
+
+}
+
+// Check if a physical device is suitable for our needs
+bool HelloTriangleApplication::isDeviceSuitable(vk::raii::PhysicalDevice const& physicalDevice)
+{
+
+}
+
+/*---------- CLEANUP METHODS ----------*/
 
 // Cleanup Vulkan resources
 void HelloTriangleApplication::cleanup()
@@ -103,7 +120,6 @@ void HelloTriangleApplication::cleanup()
 
 	glfwTerminate();
 }
-/*---------- END OF INITIALIZATION / CLEANUP METHODS ----------*/
 
 /*---------- RENDERING METHODS ----------*/
 
@@ -116,8 +132,6 @@ void HelloTriangleApplication::mainLoop()
 	}
 }
 
-/*---------- END OF RENDERING METHODS ----------*/
-
 /*---------- VALIDATION LAYERS / DEBUG ----------*/
 
 // Setup the debug messenger for validation layers
@@ -126,11 +140,14 @@ void HelloTriangleApplication::setupDebugMessenger()
 	if (!enableValidationLayers) // If validation layers are not enabled,  don't setup the debug messenger
 		return;
 
-	vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-		vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
+	vk::DebugUtilsMessageSeverityFlagsEXT severityFlags(
+		vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning 
+	  | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
 
-	vk::DebugUtilsMessageTypeFlagsEXT     messageTypeFlags(
-		vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
+	vk::DebugUtilsMessageTypeFlagsEXT messageTypeFlags(
+		vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral 
+	  | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance 
+	  | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
 
 	vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfoEXT
 	{ 
@@ -154,10 +171,6 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL HelloTriangleApplication::debugCallback(vk::Deb
 
 	return vk::False;
 }
-
-/*---------- END OF VALIDATION LAYERS / DEBUG ----------*/
-
-/*---------- END OF CLASS METHODS ----------*/
 
 /*---------- MAIN METHOD / ENTRY POINT ----------*/
 

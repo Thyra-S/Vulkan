@@ -35,6 +35,8 @@ private:
 	const uint32_t WIDTH = 2400;
 	const uint32_t HEIGHT = 1800;
 
+	std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
+
 	const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 
 	#ifdef NDEBUG
@@ -43,7 +45,7 @@ private:
 		const bool enableValidationLayers = true;
 	#endif
 
-	/*---------- INITIALIZATION / CLEANUP METHODS ----------*/
+	/*---------- INITIALIZATION METHODS ----------*/
 
 	// initialize Vulkan instance
     void initVulkan();
@@ -59,6 +61,16 @@ private:
 
 	// initialize GLFW window
 	void initWindow();
+
+	/*---------- PHYSICAL DEVICE METHODS ----------*/
+
+	// Pick a physical device (GPU) that supports Vulkan
+	void pickPhysicalDevice();
+
+	// Check if a physical device is suitable for our needs
+	bool isDeviceSuitable(vk::raii::PhysicalDevice const& physicalDevice);
+
+	/*---------- CLEANUP METHODS ----------*/
 
 	// cleanup Vulkan resources
 	void cleanup();
