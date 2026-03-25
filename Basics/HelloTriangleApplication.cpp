@@ -18,6 +18,7 @@ void HelloTriangleApplication::initVulkan()
 {
 	createInstance();
 	setupDebugMessenger();
+	createSurface();
 	pickPhysicalDevice();
 	createLogicalDevice();
 }
@@ -86,7 +87,7 @@ void HelloTriangleApplication::createInstance()
 	instance = vk::raii::Instance(context, createInfo);
 }
 
-// Gets required extensions for the vulkan instance
+// Gets required extensions for the Vulkan instance
 std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions()
 {
 	uint32_t glfwExtensionCount = 0;
@@ -100,6 +101,16 @@ std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions
 
 	return extensions;
 }
+
+// Create a Vulkan surface for rendering
+void HelloTriangleApplication::createSurface() {
+	VkSurfaceKHR       _surface;
+	if (glfwCreateWindowSurface(*instance, window, nullptr, &_surface) != 0) {
+		throw std::runtime_error("failed to create window surface!");
+	}
+	surface = vk::raii::SurfaceKHR(instance, _surface);
+}
+
 /*---------- PHYSICAL DEVICE METHODS ----------*/
 
 // Pick a physical device (GPU) that supports Vulkan
@@ -152,13 +163,24 @@ bool HelloTriangleApplication::isDeviceSuitable(vk::raii::PhysicalDevice const& 
 // Create a logical device from the selected physical device, and retrieve the graphics queue.
 void HelloTriangleApplication::createLogicalDevice()
 {
+	// find a queue family that supports both graphics and present operations
 	std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-	auto graphicsQueueFamilyProperty = std::ranges::find_if(queueFamilyProperties, [](auto const& qfp)
-		{
-			return (qfp.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
-		});
 
-	auto graphicsIndex = static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyProperty));
+	uint32_t queueIndex = ~0;
+	for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++)
+	{
+		if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) &&
+			physicalDevice.getSurfaceSupportKHR(qfpIndex, *surface))
+		{
+			// found a queue family that supports both graphics and present
+			queueIndex = qfpIndex;
+			break;
+		}
+	}
+	if (queueIndex == ~0)
+	{
+		throw std::runtime_error("Could not find a queue for graphics and present -> terminating");
+	}
 
 	// query for Vulkan 1.3 features
 	vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = 
@@ -171,7 +193,7 @@ void HelloTriangleApplication::createLogicalDevice()
 	float queuePriority = 0.5f;
 	vk::DeviceQueueCreateInfo deviceQueueCreateInfo
 	{
-		.queueFamilyIndex = graphicsIndex,
+		.queueFamilyIndex = queueIndex,
 		.queueCount = 1,
 		.pQueuePriorities = &queuePriority,
 	};
@@ -185,7 +207,7 @@ void HelloTriangleApplication::createLogicalDevice()
 	};
 
 	device = vk::raii::Device(physicalDevice, deviceCreateInfo);
-	graphicsQueue = vk::raii::Queue(device, graphicsIndex, 0);
+	graphicsQueue = vk::raii::Queue(device, queueIndex, 0);
 }
 
 /*---------- CLEANUP METHODS ----------*/
