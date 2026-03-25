@@ -30,6 +30,8 @@ private:
 
 	vk::raii::Context context;
 	vk::raii::Instance instance = nullptr; 
+	vk::raii::PhysicalDevice physicalDevice = nullptr;
+	vk::raii::Device device = nullptr;
 	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
 
 	const uint32_t WIDTH = 2400;

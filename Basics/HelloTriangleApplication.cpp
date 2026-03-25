@@ -102,13 +102,48 @@ std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions
 // Pick a physical device (GPU) that supports Vulkan
 void HelloTriangleApplication::pickPhysicalDevice() 
 {
+	std::vector<vk::raii::PhysicalDevice> physicalDevices = instance.enumeratePhysicalDevices();
+	auto const devIter = std::ranges::find_if(physicalDevices, [&](auto const& physicalDevice) 
+		{ 
+			return isDeviceSuitable(physicalDevice); 
+		});
 
+	if (devIter == physicalDevices.end())
+	{
+		throw std::runtime_error("failed to find a suitable GPU!");
+	}
+
+	physicalDevice = *devIter;
 }
 
 // Check if a physical device is suitable for our needs
 bool HelloTriangleApplication::isDeviceSuitable(vk::raii::PhysicalDevice const& physicalDevice)
 {
+	// Check if the device supports Vulkan 1.3
+	bool supportsVulkan1_3 = physicalDevice.getProperties().apiVersion >= vk::ApiVersion13;
 
+	// Check if the device has a queue family that supports graphics operations
+	bool queueFamilies = physicalDevice.getQueueFamilyProperties();
+	bool supportsGraphics = std::ranges::any_of(queueFamilies, [](auto const& qfp) { return !!(qfp.queueFlags & vk::QueueFlagBits::eGraphics); });
+
+	// Check if the device supports all required extensions
+	auto availableDeviceExtensions = physicalDevice.enumerateDeviceExtensionProperties();
+	bool supportsAllRequiredExtensions =
+		std::ranges::all_of(requiredDeviceExtension,[&availableDeviceExtensions](auto const& requiredDeviceExtension)
+			{
+				return std::ranges::any_of(availableDeviceExtensions, [requiredDeviceExtension](auto const& availableDeviceExtension)
+					{
+						return strcmp(availableDeviceExtension.extensionName, requiredDeviceExtension) == 0;
+					});
+			});
+
+	//	Check if the device supports the required features for our application
+	auto features = physicalDevice .template getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+	bool supportsRequiredFeatures = features.template get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+		features.template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
+
+	// The device is suitable if it supports Vulkan 1.3, has a graphics queue family, supports all required extensions, and supports the required features.
+	return supportsVulkan1_3 && supportsGraphics && supportsAllRequiredExtensions && supportsRequiredFeatures;
 }
 
 /*---------- CLEANUP METHODS ----------*/
