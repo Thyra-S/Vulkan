@@ -28,16 +28,20 @@ private:
 	/*---------- GLOBAL VARIABLES ----------*/
 	GLFWwindow* window = nullptr;
 
-	vk::raii::Context context;
-	vk::raii::Instance instance = nullptr; 
-	vk::raii::PhysicalDevice physicalDevice = nullptr;
-	vk::raii::Device device = nullptr;
-	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
-
 	const uint32_t WIDTH = 2400;
 	const uint32_t HEIGHT = 1800;
 
+	vk::raii::Context context;
+	vk::raii::Instance instance = nullptr; 
+	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
+
+	vk::raii::PhysicalDevice physicalDevice = nullptr;
+	vk::raii::Device device = nullptr;
+
+	vk::raii::Queue graphicsQueue = nullptr;
+
 	std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
+
 
 	const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 
@@ -51,9 +55,6 @@ private:
 
 	// initialize Vulkan instance
     void initVulkan();
-
-	// Rate device suitability based on its features and properties, higher score is better
-	//int rateDeviceSuitability(VkPhysicalDevice device);
 
 	// create Vulkan instance
 	void createInstance();
@@ -71,6 +72,8 @@ private:
 
 	// Check if a physical device is suitable for our needs
 	bool isDeviceSuitable(vk::raii::PhysicalDevice const& physicalDevice);
+
+	void createLogicalDevice();
 
 	/*---------- CLEANUP METHODS ----------*/
 

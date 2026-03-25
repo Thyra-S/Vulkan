@@ -18,6 +18,8 @@ void HelloTriangleApplication::initVulkan()
 {
 	createInstance();
 	setupDebugMessenger();
+	pickPhysicalDevice();
+	createLogicalDevice();
 }
 
 // Create Vulkan instance
@@ -84,6 +86,7 @@ void HelloTriangleApplication::createInstance()
 	instance = vk::raii::Instance(context, createInfo);
 }
 
+// Gets required extensions for the vulkan instance
 std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions()
 {
 	uint32_t glfwExtensionCount = 0;
@@ -123,7 +126,7 @@ bool HelloTriangleApplication::isDeviceSuitable(vk::raii::PhysicalDevice const& 
 	bool supportsVulkan1_3 = physicalDevice.getProperties().apiVersion >= vk::ApiVersion13;
 
 	// Check if the device has a queue family that supports graphics operations
-	bool queueFamilies = physicalDevice.getQueueFamilyProperties();
+	auto queueFamilies = physicalDevice.getQueueFamilyProperties();
 	bool supportsGraphics = std::ranges::any_of(queueFamilies, [](auto const& qfp) { return !!(qfp.queueFlags & vk::QueueFlagBits::eGraphics); });
 
 	// Check if the device supports all required extensions
@@ -146,6 +149,45 @@ bool HelloTriangleApplication::isDeviceSuitable(vk::raii::PhysicalDevice const& 
 	return supportsVulkan1_3 && supportsGraphics && supportsAllRequiredExtensions && supportsRequiredFeatures;
 }
 
+// Create a logical device from the selected physical device, and retrieve the graphics queue.
+void HelloTriangleApplication::createLogicalDevice()
+{
+	std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+	auto graphicsQueueFamilyProperty = std::ranges::find_if(queueFamilyProperties, [](auto const& qfp)
+		{
+			return (qfp.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
+		});
+
+	auto graphicsIndex = static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), graphicsQueueFamilyProperty));
+
+	// query for Vulkan 1.3 features
+	vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = 
+	{
+		{},                                   // vk::PhysicalDeviceFeatures2
+		{.dynamicRendering = true},           // vk::PhysicalDeviceVulkan13Features
+		{.extendedDynamicState = true}        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+	};
+
+	float queuePriority = 0.5f;
+	vk::DeviceQueueCreateInfo deviceQueueCreateInfo
+	{
+		.queueFamilyIndex = graphicsIndex,
+		.queueCount = 1,
+		.pQueuePriorities = &queuePriority,
+	};
+	vk::DeviceCreateInfo deviceCreateInfo
+	{
+		.pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
+		.queueCreateInfoCount = 1,
+		.pQueueCreateInfos = &deviceQueueCreateInfo,
+		.enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtension.size()),
+		.ppEnabledExtensionNames = requiredDeviceExtension.data() 
+	};
+
+	device = vk::raii::Device(physicalDevice, deviceCreateInfo);
+	graphicsQueue = vk::raii::Queue(device, graphicsIndex, 0);
+}
+
 /*---------- CLEANUP METHODS ----------*/
 
 // Cleanup Vulkan resources
@@ -159,9 +201,9 @@ void HelloTriangleApplication::cleanup()
 /*---------- RENDERING METHODS ----------*/
 
 // Main rendering loop
-void HelloTriangleApplication::mainLoop()
+void HelloTriangleApplication::mainLoop() 
 {
-	while (!glfwWindowShouldClose(window))
+	while (!glfwWindowShouldClose(window)) 
 	{
 		glfwPollEvents();
 	}
