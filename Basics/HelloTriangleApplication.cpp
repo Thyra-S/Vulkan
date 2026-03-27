@@ -353,6 +353,7 @@ void HelloTriangleApplication::createImageViews()
 // Create the graphics pipeline for rendering, which includes shader stages, fixed-function stages, and pipeline layout.
 void HelloTriangleApplication::createGraphicsPipeline()
 {
+	/*---------- Shaders ----------*/
 	vk::raii::ShaderModule shaderModule = createShaderModule(readFile("shaders/slang.spv"));
 
 	vk::PipelineShaderStageCreateInfo vertShaderStageInfo
@@ -375,6 +376,8 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 	vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
 
+	/*---------- Specifying dynamic states ----------*/
+
 	std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
 
 	// Specify that the viewport and scissor will be dynamic, meaning they can be changed without recreating the pipeline.
@@ -384,6 +387,8 @@ void HelloTriangleApplication::createGraphicsPipeline()
 		.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), 
 		.pDynamicStates	   = dynamicStates.data() 
 	};
+
+	/*---------- Fixed Functions ----------*/
 
 	// How the vertices are assembled into primitives, in this case, triangles.
 	vk::PipelineInputAssemblyStateCreateInfo inputAssembly
@@ -442,8 +447,35 @@ void HelloTriangleApplication::createGraphicsPipeline()
 		.pAttachments	 = &colorBlendAttachment 
 	};
 
+
 	vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 0, .pushConstantRangeCount = 0 };
 	pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+
+	/*---------- Pipeline Rendering ----------*/
+
+	vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = 
+	{
+		{
+			.stageCount = 2,
+			.pStages = shaderStages,
+			.pVertexInputState = &vertexInputInfo,
+			.pInputAssemblyState = &inputAssembly,
+			.pViewportState = &viewportState,
+			.pRasterizationState = &rasterizer,
+			.pMultisampleState = &multisampling,
+			.pColorBlendState = &colorBlending,
+			.pDynamicState = &dynamicState,
+			.layout = pipelineLayout,
+			.renderPass = nullptr
+		},
+		{
+			.colorAttachmentCount = 1, 
+			.pColorAttachmentFormats = &swapChainSurfaceFormat.format
+		} 
+	};
+
+	graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+
 }
 
 

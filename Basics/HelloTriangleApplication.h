@@ -43,13 +43,15 @@ private:
 	vk::raii::PhysicalDevice		 physicalDevice = nullptr;
 	vk::raii::Device				 device = nullptr;
 	vk::raii::Queue					 graphicsQueue = nullptr;
-	vk::raii::PipelineLayout		 pipelineLayout = nullptr;
 	vk::raii::SurfaceKHR			 surface = nullptr;
 	vk::raii::SwapchainKHR           swapChain = nullptr;
 	std::vector<vk::Image>           swapChainImages;
 	vk::SurfaceFormatKHR             swapChainSurfaceFormat;
 	vk::Extent2D                     swapChainExtent;
 	std::vector<vk::raii::ImageView> swapChainImageViews;
+
+	vk::raii::PipelineLayout pipelineLayout = nullptr;
+	vk::raii::Pipeline       graphicsPipeline = nullptr;
 
 
 	std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
