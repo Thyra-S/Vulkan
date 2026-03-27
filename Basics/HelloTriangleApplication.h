@@ -118,7 +118,7 @@ private:
 	static std::vector<char> readFile(const std::string& filename);
 
 	// Helper function to create a shader module from the given shader code.
-	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
+	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const;
 
 	/*---------- RENDERING METHODS ----------*/
 

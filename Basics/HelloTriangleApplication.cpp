@@ -375,7 +375,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 }
 
 // Helper function to read a file into a byte array, used for loading shader code.
-static std::vector<char> readFile(const std::string& filename) {
+ std::vector<char> HelloTriangleApplication::readFile(const std::string& filename) {
 	// Open the file at the end to get the file size, and in binary mode to read raw bytes.
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
