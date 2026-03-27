@@ -365,14 +365,88 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 	vk::PipelineShaderStageCreateInfo fragShaderStageInfo
 	{
-		.stage = vk::ShaderStageFlagBits::eFragment,
+		.stage  = vk::ShaderStageFlagBits::eFragment,
 		.module = shaderModule,
-		.pName = "fragMain",
+		.pName  = "fragMain",
 		.pSpecializationInfo = nullptr // Optional specialization constants
 	};
 
-	vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+	vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+	vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+
+	std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+
+	// Specify that the viewport and scissor will be dynamic, meaning they can be changed without recreating the pipeline.
+	// Allows other items to be static.
+	vk::PipelineDynamicStateCreateInfo dynamicState
+	{ 
+		.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), 
+		.pDynamicStates	   = dynamicStates.data() 
+	};
+
+	// How the vertices are assembled into primitives, in this case, triangles.
+	vk::PipelineInputAssemblyStateCreateInfo inputAssembly
+	{ 
+		.topology = vk::PrimitiveTopology::eTriangleList 
+	};
+
+	// Specify Viewport and scissor size dynamically, so we don't have to specify them here. They will be set in the command buffer before drawing.
+	vk::PipelineViewportStateCreateInfo viewportState
+	{ 
+		.viewportCount = 1, 
+		.scissorCount  = 1 
+	};
+
+	vk::PipelineRasterizationStateCreateInfo rasterizer
+	{ 
+		.depthClampEnable		 = vk::False,
+		.rasterizerDiscardEnable = vk::False,
+		.polygonMode			 = vk::PolygonMode::eFill,
+		.cullMode				 = vk::CullModeFlagBits::eBack,
+		.frontFace				 = vk::FrontFace::eClockwise,
+		.depthBiasEnable		 = vk::False,
+		.lineWidth				 = 1.0f 
+	};
+
+	// Multi sampling for anti-aliasing, disabled in this case (1 sample per pixel).
+	vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = vk::False };
+
+	// Example blending state for alpha blending
+	// finalColor.rgb = newAlpha * newColor + (1 - newAlpha) * oldColor;
+	// finalColor.a = newAlpha.a;
+	/*vk::PipelineColorBlendAttachmentState colorBlendAttachment
+	{
+		.blendEnable		 = vk::True,
+		.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
+		.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha,
+		.colorBlendOp		 = vk::BlendOp::eAdd,
+		.srcAlphaBlendFactor = vk::BlendFactor::eOne,
+		.dstAlphaBlendFactor = vk::BlendFactor::eZero,
+		.alphaBlendOp		 = vk::BlendOp::eAdd,
+		.colorWriteMask		 = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+	};*/
+
+	vk::PipelineColorBlendAttachmentState colorBlendAttachment
+	{
+		.blendEnable = vk::False,
+		.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+	};
+
+	
+	vk::PipelineColorBlendStateCreateInfo colorBlending
+	{
+		.logicOpEnable   = vk::False, 
+		.logicOp		 = vk::LogicOp::eCopy, 
+		.attachmentCount = 1, 
+		.pAttachments	 = &colorBlendAttachment 
+	};
+
+	vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 0, .pushConstantRangeCount = 0 };
+	pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
 }
+
+
 
 // Helper function to read a file into a byte array, used for loading shader code.
  std::vector<char> HelloTriangleApplication::readFile(const std::string& filename) {
