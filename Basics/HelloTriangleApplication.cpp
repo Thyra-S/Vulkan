@@ -350,9 +350,62 @@ void HelloTriangleApplication::createImageViews()
 
 /*---------- GRAPHICS PIPELINE METHODS ----------*/
 
+// Create the graphics pipeline for rendering, which includes shader stages, fixed-function stages, and pipeline layout.
 void HelloTriangleApplication::createGraphicsPipeline()
 {
+	vk::raii::ShaderModule shaderModule = createShaderModule(readFile("shaders/slang.spv"));
 
+	vk::PipelineShaderStageCreateInfo vertShaderStageInfo
+	{ 
+		.stage  = vk::ShaderStageFlagBits::eVertex, 
+		.module = shaderModule,  
+		.pName  = "vertMain",
+		.pSpecializationInfo = nullptr // Optional specialization constants
+	};
+
+	vk::PipelineShaderStageCreateInfo fragShaderStageInfo
+	{
+		.stage = vk::ShaderStageFlagBits::eFragment,
+		.module = shaderModule,
+		.pName = "fragMain",
+		.pSpecializationInfo = nullptr // Optional specialization constants
+	};
+
+	vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+}
+
+// Helper function to read a file into a byte array, used for loading shader code.
+static std::vector<char> readFile(const std::string& filename) {
+	// Open the file at the end to get the file size, and in binary mode to read raw bytes.
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+	if (!file.is_open()) {
+		throw std::runtime_error("failed to open file!");
+	}
+
+	// Create a buffer with the size of the file, and read the file contents into the buffer.
+	std::vector<char> buffer(file.tellg());
+
+	// Seek back to the beginning of the file and read the contents into the buffer.
+	file.seekg(0, std::ios::beg);
+	file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+
+	file.close();
+
+	return buffer;
+}
+
+[[nodiscard]] vk::raii::ShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char>& code) const
+{
+	vk::ShaderModuleCreateInfo createInfo
+	{ 
+		.codeSize = code.size() * sizeof(char), 
+		.pCode	  = reinterpret_cast<const uint32_t*>(code.data()) 
+	};
+
+	vk::raii::ShaderModule shaderModule{ device, createInfo };
+
+	return shaderModule;
 }
 
 /*---------- RENDERING METHODS ----------*/

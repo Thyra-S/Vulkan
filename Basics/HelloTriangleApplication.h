@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <fstream>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -112,6 +113,12 @@ private:
 	/*---------- GRAPHICS PIPELINE METHODS ----------*/
 	// Create the graphics pipeline for rendering, which includes shader stages, fixed-function stages, and pipeline layout.
 	void createGraphicsPipeline();
+
+	// Helper function to read a file into a byte array, used for loading shader code.
+	static std::vector<char> readFile(const std::string& filename);
+
+	// Helper function to create a shader module from the given shader code.
+	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
 
 	/*---------- RENDERING METHODS ----------*/
 
