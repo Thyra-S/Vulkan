@@ -414,6 +414,8 @@ void HelloTriangleApplication::createGraphicsPipeline()
 		.lineWidth				 = 1.0f 
 	};
 
+	/*---------- Pipeline Layout ----------*/
+	
 	// Multi sampling for anti-aliasing, disabled in this case (1 sample per pixel).
 	vk::PipelineMultisampleStateCreateInfo multisampling{ .rasterizationSamples = vk::SampleCountFlagBits::e1, .sampleShadingEnable = vk::False };
 
@@ -451,8 +453,10 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	vk::PipelineLayoutCreateInfo pipelineLayoutInfo{ .setLayoutCount = 0, .pushConstantRangeCount = 0 };
 	pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
 
-	/*---------- Pipeline Rendering ----------*/
+	/*---------- Dynamic Rendering ----------*/
 
+	// Sets the pipeline create info and the dynamic rendering info in a structure chain, automatically
+	// setting the pNext fields, and creates the graphics pipeline with the structure chain.
 	vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = 
 	{
 		{
@@ -466,7 +470,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 			.pColorBlendState = &colorBlending,
 			.pDynamicState = &dynamicState,
 			.layout = pipelineLayout,
-			.renderPass = nullptr
+			.renderPass = nullptr // No render pass, using dynamic rendering
 		},
 		{
 			.colorAttachmentCount = 1, 
@@ -475,6 +479,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 	};
 
 	graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+
 
 }
 
