@@ -42,6 +42,7 @@ private:
 	vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
 	vk::raii::PhysicalDevice		 physicalDevice = nullptr;
 	vk::raii::Device				 device = nullptr;
+	uint32_t queueIndex = ~0;
 	vk::raii::Queue					 graphicsQueue = nullptr;
 	vk::raii::SurfaceKHR			 surface = nullptr;
 	vk::raii::SwapchainKHR           swapChain = nullptr;
@@ -53,6 +54,12 @@ private:
 	vk::raii::PipelineLayout pipelineLayout = nullptr;
 	vk::raii::Pipeline       graphicsPipeline = nullptr;
 
+	vk::raii::CommandPool commandPool = nullptr;
+	vk::raii::CommandBuffer commandBuffer = nullptr;
+
+	vk::raii::Semaphore presentCompleteSemaphore = nullptr;
+	vk::raii::Semaphore renderFinishedSemaphore = nullptr;
+	vk::raii::Fence drawFence = nullptr;
 
 	std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
 
@@ -69,6 +76,8 @@ private:
 
 	// initialize Vulkan instance
     void initVulkan();
+
+	void createSyncObjects();
 
 	// create Vulkan instance
 	void createInstance();
@@ -126,8 +135,29 @@ private:
 
 	/*---------- RENDERING METHODS ----------*/
 
+	// Create a command pool to manage the memory that is used to store the buffers and command buffers are allocated from them.
+	void createCommandPool();
+
+	// Create command buffers, which are used to record drawing commands that will be submitted to the graphics queue for execution.
+	void createCommandBuffer();
+
+	// Record commands into the command buffer, which will be executed by the graphics queue
+	void recordCommandBuffer(uint32_t imageIndex);
+
+	void transition_image_layout(
+		uint32_t                imageIndex,
+		vk::ImageLayout         old_layout,
+		vk::ImageLayout         new_layout,
+		vk::AccessFlags2        src_access_mask,
+		vk::AccessFlags2        dst_access_mask,
+		vk::PipelineStageFlags2 src_stage_mask,
+		vk::PipelineStageFlags2 dst_stage_mask);
+
 	// main rendering loop
 	void mainLoop();
+
+	// Draw a frame by acquiring an image from the swapchain, executing the command buffer with that image as attachment in the framebuffer, and returning the image to the swapchain for presentation.
+	void drawFrame();
 
 	/*---------- CLEANUP METHODS ----------*/
 

@@ -24,6 +24,16 @@ void HelloTriangleApplication::initVulkan()
 	createSwapChain();
 	createImageViews();
 	createGraphicsPipeline();
+	createCommandPool();
+	createCommandBuffer();
+	createSyncObjects();
+}
+
+void HelloTriangleApplication::createSyncObjects()
+{
+	presentCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
+	renderFinishedSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
+	drawFence = vk::raii::Fence(device, { .flags = vk::FenceCreateFlagBits::eSignaled });
 }
 
 // Create Vulkan instance
@@ -169,7 +179,6 @@ void HelloTriangleApplication::createLogicalDevice()
 	// find a queue family that supports both graphics and present operations
 	std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
 
-	uint32_t queueIndex = ~0;
 	for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++)
 	{
 		if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) &&
@@ -186,11 +195,16 @@ void HelloTriangleApplication::createLogicalDevice()
 	}
 
 	// query for Vulkan 1.3 features
-	vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain =
+	vk::StructureChain<vk::PhysicalDeviceFeatures2,
+		vk::PhysicalDeviceVulkan11Features,
+		vk::PhysicalDeviceVulkan13Features,
+		vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>
+		featureChain 
 	{
-		{},                                   // vk::PhysicalDeviceFeatures2
-		{.dynamicRendering	   = true},           // vk::PhysicalDeviceVulkan13Features
-		{.extendedDynamicState = true}        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+			{},                                                          // vk::PhysicalDeviceFeatures2
+			{.shaderDrawParameters = true},                              // vk::PhysicalDeviceVulkan11Features
+			{.synchronization2 = true, .dynamicRendering = true},        // vk::PhysicalDeviceVulkan13Features
+			{.extendedDynamicState = true}                               // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
 	};
 
 	// Create the logical device with the required features and extensions, and retrieve the graphics queue.
@@ -521,12 +535,172 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 /*---------- RENDERING METHODS ----------*/
 
+// Create a command pool to manage the memory that is used to store the buffers and command buffers are allocated from them.
+void HelloTriangleApplication::createCommandPool()
+{
+	vk::CommandPoolCreateInfo poolInfo{ .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = queueIndex };
+
+	commandPool = vk::raii::CommandPool(device, poolInfo);
+}
+
+// Create command buffers, which are used to record drawing commands that will be submitted to the graphics queue for execution.
+void HelloTriangleApplication::createCommandBuffer() 
+{
+	vk::CommandBufferAllocateInfo allocInfo{ .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+
+	commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+}
+
+// Record commands into the command buffer, which will be executed by the graphics queue
+void HelloTriangleApplication::recordCommandBuffer(uint32_t imageIndex) 
+{
+	commandBuffer.begin({});
+	// Before starting rendering, transition the swapchain image to COLOR_ATTACHMENT_OPTIMAL
+	transition_image_layout(
+		imageIndex,
+		vk::ImageLayout::eUndefined,
+		vk::ImageLayout::eColorAttachmentOptimal,
+		{},                                                        // srcAccessMask (no need to wait for previous operations)
+		vk::AccessFlagBits2::eColorAttachmentWrite,                // dstAccessMask
+		vk::PipelineStageFlagBits2::eColorAttachmentOutput,        // srcStage
+		vk::PipelineStageFlagBits2::eColorAttachmentOutput         // dstStage
+	);
+
+	vk::ClearValue clearColor
+	{
+		.color = vk::ClearColorValue({{0.0f, 0.0f, 0.0f, 1.0f}})
+	};
+
+	vk::RenderingAttachmentInfo attachmentInfo 
+	{
+		.imageView = swapChainImageViews[imageIndex],
+		.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.loadOp = vk::AttachmentLoadOp::eClear,
+		.storeOp = vk::AttachmentStoreOp::eStore,
+		.clearValue = clearColor 
+	};
+	vk::RenderingInfo renderingInfo 
+	{
+		.renderArea = {.offset = {0, 0}, .extent = swapChainExtent},
+		.layerCount = 1,
+		.colorAttachmentCount = 1,
+		.pColorAttachments = &attachmentInfo 
+	};
+
+	commandBuffer.beginRendering(renderingInfo);
+	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+	commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
+	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
+	commandBuffer.draw(3, 1, 0, 0);
+	commandBuffer.endRendering();
+
+	// After rendering, transition the swapchain image to PRESENT_SRC
+	transition_image_layout(
+		imageIndex,
+		vk::ImageLayout::eColorAttachmentOptimal,
+		vk::ImageLayout::ePresentSrcKHR,
+		vk::AccessFlagBits2::eColorAttachmentWrite,                // srcAccessMask
+		{},                                                        // dstAccessMask
+		vk::PipelineStageFlagBits2::eColorAttachmentOutput,        // srcStage
+		vk::PipelineStageFlagBits2::eBottomOfPipe                  // dstStage
+	);
+	commandBuffer.end();
+}
+
+void HelloTriangleApplication::transition_image_layout(
+	uint32_t                imageIndex,
+	vk::ImageLayout         old_layout,
+	vk::ImageLayout         new_layout,
+	vk::AccessFlags2        src_access_mask,
+	vk::AccessFlags2        dst_access_mask,
+	vk::PipelineStageFlags2 src_stage_mask,
+	vk::PipelineStageFlags2 dst_stage_mask)
+{
+	vk::ImageMemoryBarrier2 barrier = {
+		.srcStageMask = src_stage_mask,
+		.srcAccessMask = src_access_mask,
+		.dstStageMask = dst_stage_mask,
+		.dstAccessMask = dst_access_mask,
+		.oldLayout = old_layout,
+		.newLayout = new_layout,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = swapChainImages[imageIndex],
+		.subresourceRange = {
+			   .aspectMask = vk::ImageAspectFlagBits::eColor,
+			   .baseMipLevel = 0,
+			   .levelCount = 1,
+			   .baseArrayLayer = 0,
+			   .layerCount = 1} };
+	vk::DependencyInfo dependency_info = {
+		.dependencyFlags = {},
+		.imageMemoryBarrierCount = 1,
+		.pImageMemoryBarriers = &barrier };
+	commandBuffer.pipelineBarrier2(dependency_info);
+}
+
 // Main rendering loop
 void HelloTriangleApplication::mainLoop()
 {
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
+		drawFrame();
+	}
+
+	device.waitIdle();
+}
+
+void HelloTriangleApplication::drawFrame() 
+{
+	// wait for previous frame to finish
+	// auto fenceResult = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
+	graphicsQueue.waitIdle();
+
+	// acquire an image from the swapchain
+	auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+	recordCommandBuffer(imageIndex);
+
+	// Reset the fence to unsignaled so next frame knows when current frame is done. 
+	device.resetFences(*drawFence);
+
+	vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+	const vk::SubmitInfo submitInfo
+	{
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &*presentCompleteSemaphore,
+		.pWaitDstStageMask = &waitDestinationStageMask,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &*commandBuffer,
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = &*renderFinishedSemaphore 
+	};
+
+	// And submit the command buffer to the graphics queue for execution, signaling 
+	// the draw fence when the commands have finished executing.
+	graphicsQueue.submit(submitInfo, *drawFence);
+
+	const vk::PresentInfoKHR presentInfoKHR
+	{
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = &*renderFinishedSemaphore,
+		.swapchainCount = 1,
+		.pSwapchains = &*swapChain,
+		.pImageIndices = &imageIndex,
+		.pResults = nullptr // Optional pointer to an array of results for each swapchain, or nullptr to ignore
+	};
+
+	result = graphicsQueue.presentKHR(presentInfoKHR);
+
+	switch (result)
+	{
+	case vk::Result::eSuccess:
+		break;
+	case vk::Result::eSuboptimalKHR:
+		std::cout << "vk::Queue::presentKHR returned vk::Result::eSuboptimalKHR !\n";
+		break;
+	default:
+		break;        // an unexpected result is returned!
 	}
 }
 
