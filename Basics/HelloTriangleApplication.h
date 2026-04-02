@@ -25,6 +25,8 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
+constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
 class HelloTriangleApplication {
 public:
 	// entry point for the application
@@ -36,6 +38,8 @@ private:
 
 	const uint32_t WIDTH = 2400;
 	const uint32_t HEIGHT = 1800;
+
+	uint32_t frameIndex = 0;
 
 	vk::raii::Context				 context;
 	vk::raii::Instance				 instance = nullptr; 
@@ -55,11 +59,11 @@ private:
 	vk::raii::Pipeline       graphicsPipeline = nullptr;
 
 	vk::raii::CommandPool commandPool = nullptr;
-	vk::raii::CommandBuffer commandBuffer = nullptr;
+	std::vector<vk::raii::CommandBuffer> commandBuffers;
 
-	vk::raii::Semaphore presentCompleteSemaphore = nullptr;
-	vk::raii::Semaphore renderFinishedSemaphore = nullptr;
-	vk::raii::Fence drawFence = nullptr;
+	std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
+	std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
+	std::vector<vk::raii::Fence> inFlightFences;
 
 	std::vector<const char*> requiredDeviceExtension = { vk::KHRSwapchainExtensionName };
 
@@ -139,7 +143,7 @@ private:
 	void createCommandPool();
 
 	// Create command buffers, which are used to record drawing commands that will be submitted to the graphics queue for execution.
-	void createCommandBuffer();
+	void createCommandBuffers();
 
 	// Record commands into the command buffer, which will be executed by the graphics queue
 	void recordCommandBuffer(uint32_t imageIndex);

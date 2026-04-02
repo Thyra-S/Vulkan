@@ -25,15 +25,24 @@ void HelloTriangleApplication::initVulkan()
 	createImageViews();
 	createGraphicsPipeline();
 	createCommandPool();
-	createCommandBuffer();
+	createCommandBuffers();
 	createSyncObjects();
 }
 
 void HelloTriangleApplication::createSyncObjects()
 {
-	presentCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
-	renderFinishedSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
-	drawFence = vk::raii::Fence(device, { .flags = vk::FenceCreateFlagBits::eSignaled });
+	assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
+
+	for (size_t i = 0; i < swapChainImages.size(); i++)
+	{
+		renderFinishedSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+	}
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		presentCompleteSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+		inFlightFences.emplace_back(device, vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled });
+	}
 }
 
 // Create Vulkan instance
@@ -544,16 +553,23 @@ void HelloTriangleApplication::createCommandPool()
 }
 
 // Create command buffers, which are used to record drawing commands that will be submitted to the graphics queue for execution.
-void HelloTriangleApplication::createCommandBuffer() 
+void HelloTriangleApplication::createCommandBuffers() 
 {
-	vk::CommandBufferAllocateInfo allocInfo{ .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+	commandBuffers.clear();
+	vk::CommandBufferAllocateInfo allocInfo
+	{ 
+		.commandPool = commandPool, 
+		.level = vk::CommandBufferLevel::ePrimary, 
+		.commandBufferCount = MAX_FRAMES_IN_FLIGHT 
+	};
 
-	commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+	commandBuffers = vk::raii::CommandBuffers(device, allocInfo);
 }
 
 // Record commands into the command buffer, which will be executed by the graphics queue
 void HelloTriangleApplication::recordCommandBuffer(uint32_t imageIndex) 
 {
+	auto& commandBuffer = commandBuffers[frameIndex];
 	commandBuffer.begin({});
 	// Before starting rendering, transition the swapchain image to COLOR_ATTACHMENT_OPTIMAL
 	transition_image_layout(
@@ -636,7 +652,7 @@ void HelloTriangleApplication::transition_image_layout(
 		.dependencyFlags = {},
 		.imageMemoryBarrierCount = 1,
 		.pImageMemoryBarriers = &barrier };
-	commandBuffer.pipelineBarrier2(dependency_info);
+	commandBuffers[frameIndex].pipelineBarrier2(dependency_info);
 }
 
 // Main rendering loop
@@ -655,35 +671,40 @@ void HelloTriangleApplication::drawFrame()
 {
 	// wait for previous frame to finish
 	// auto fenceResult = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
-	graphicsQueue.waitIdle();
+	auto fenceResult = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
+	if (fenceResult != vk::Result::eSuccess)
+	{
+		throw std::runtime_error("failed to wait for fence!");
+	}
+	device.resetFences(*inFlightFences[frameIndex]);
 
 	// acquire an image from the swapchain
-	auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+	auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+
+	commandBuffers[frameIndex].reset({});
 	recordCommandBuffer(imageIndex);
 
-	// Reset the fence to unsignaled so next frame knows when current frame is done. 
-	device.resetFences(*drawFence);
 
 	vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
 	const vk::SubmitInfo submitInfo
 	{
 		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &*presentCompleteSemaphore,
+		.pWaitSemaphores = &*presentCompleteSemaphores[frameIndex],
 		.pWaitDstStageMask = &waitDestinationStageMask,
 		.commandBufferCount = 1,
-		.pCommandBuffers = &*commandBuffer,
+		.pCommandBuffers = &*commandBuffers[frameIndex],
 		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &*renderFinishedSemaphore 
+		.pSignalSemaphores = &*renderFinishedSemaphores[imageIndex]
 	};
 
 	// And submit the command buffer to the graphics queue for execution, signaling 
 	// the draw fence when the commands have finished executing.
-	graphicsQueue.submit(submitInfo, *drawFence);
+	graphicsQueue.submit(submitInfo, *inFlightFences[frameIndex]);
 
 	const vk::PresentInfoKHR presentInfoKHR
 	{
 		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &*renderFinishedSemaphore,
+		.pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
 		.swapchainCount = 1,
 		.pSwapchains = &*swapChain,
 		.pImageIndices = &imageIndex,
@@ -701,7 +722,10 @@ void HelloTriangleApplication::drawFrame()
 		break;
 	default:
 		break;        // an unexpected result is returned!
+
 	}
+
+	frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 /*---------- CLEANUP METHODS ----------*/
