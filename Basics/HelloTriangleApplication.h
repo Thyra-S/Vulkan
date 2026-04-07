@@ -62,6 +62,9 @@ private:
 	vk::raii::CommandPool commandPool = nullptr;
 	std::vector<vk::raii::CommandBuffer> commandBuffers;
 
+	vk::raii::Buffer vertexBuffer = nullptr;
+	vk::raii::DeviceMemory vertexBufferMemory = nullptr;
+
 	std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
 	std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
 	std::vector<vk::raii::Fence> inFlightFences;
@@ -115,6 +118,9 @@ private:
 
 	// Creates the logical device from the selected physical device, and retrieves the graphics queue
 	void createLogicalDevice();
+
+	// Find a suitable memory type for allocating memory, based on the type filter and required properties
+	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
 	/*---------- SWAPCHAIN METHODS ----------*/
 

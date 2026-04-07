@@ -33,9 +33,9 @@ struct Vertex
 };
 
 const std::vector<Vertex> vertices = {
-	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	{{ 0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+	{{ 0.5f,  0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{-0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}}
 };
 
 /*---------- INTIALIZATION / CLEANUP METHODS ----------*/
@@ -70,8 +70,30 @@ void HelloTriangleApplication::initVulkan()
 
 void HelloTriangleApplication::createVertexBuffer()
 {
+	vk::BufferCreateInfo bufferInfo
+	{
+		.size = sizeof(vertices[0]) * vertices.size(),
+		.usage = vk::BufferUsageFlagBits::eVertexBuffer,
+		.sharingMode = vk::SharingMode::eExclusive
+	};
+	vertexBuffer = vk::raii::Buffer(device, bufferInfo);
 
+	vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
+	vk::MemoryAllocateInfo memoryAllocateInfo
+	{
+		.allocationSize = memRequirements.size,
+		.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible 
+																		| vk::MemoryPropertyFlagBits::eHostCoherent) 
+	};
+	vertexBufferMemory = vk::raii::DeviceMemory(device, memoryAllocateInfo);
+
+	vertexBuffer.bindMemory(*vertexBufferMemory, 0);
+
+	void* data = vertexBufferMemory.mapMemory(0, bufferInfo.size);
+	memcpy(data, vertices.data(), bufferInfo.size);
+	vertexBufferMemory.unmapMemory();
 }
+
 // Recreates the swap chain when its no longer compatible, like the window size changing
 void HelloTriangleApplication::recreateSwapChain() 
 {
@@ -289,6 +311,23 @@ void HelloTriangleApplication::createLogicalDevice()
 
 	device = vk::raii::Device(physicalDevice, deviceCreateInfo);
 	graphicsQueue = vk::raii::Queue(device, queueIndex, 0);
+}
+
+// Find a suitable memory type for allocating memory, based on the type filter and required properties
+uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+{
+	vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
+	vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+	{
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+		{
+			return i;
+		}
+	}
+
+	throw std::runtime_error("failed to find suitable memory type!");
 }
 
 /*---------- SWAPCHAIN METHODS ----------*/
@@ -669,7 +708,8 @@ void HelloTriangleApplication::recordCommandBuffer(uint32_t imageIndex)
 	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
 	commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainExtent.width), static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
 	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
-	commandBuffer.draw(3, 1, 0, 0);
+	commandBuffer.bindVertexBuffers(0, *vertexBuffer, { 0 });
+	commandBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 	commandBuffer.endRendering();
 
 	// After rendering, transition the swapchain image to PRESENT_SRC
