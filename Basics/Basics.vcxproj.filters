@@ -37,8 +37,5 @@
     <None Include="Shaders\shader.slang">
       <Filter>Source Files\Shaders</Filter>
     </None>
-    <None Include="Shaders\slang.spv">
-      <Filter>Source Files\Shaders</Filter>
-    </None>
   </ItemGroup>
 </Project>

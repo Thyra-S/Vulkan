@@ -1,5 +1,43 @@
 #include "HelloTriangleApplication.h"
 
+struct Vertex
+{
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static vk::VertexInputBindingDescription getBindingDescription()
+	{
+		return { 
+			.binding = 0, 
+			.stride = sizeof(Vertex), 
+			.inputRate = vk::VertexInputRate::eVertex 
+		};
+	}
+
+	static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
+	{
+		return { 
+			{{ //position attribute
+				.location = 0, 
+				.binding = 0, 
+				.format = vk::Format::eR32G32Sfloat, // 2 Dimension vector of 32 bit floats
+				.offset = offsetof(Vertex, pos)
+			},{ // color attribute
+				.location = 1, 
+				.binding = 0, 
+				.format = vk::Format::eR32G32B32Sfloat,  // 3 Dimension vector of 32 bit floats
+				.offset = offsetof(Vertex, color)
+			}} 
+		};
+	}
+};
+
+const std::vector<Vertex> vertices = {
+	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
 /*---------- INTIALIZATION / CLEANUP METHODS ----------*/
 
 // Initialize GLFW window
@@ -25,10 +63,26 @@ void HelloTriangleApplication::initVulkan()
 	createImageViews();
 	createGraphicsPipeline();
 	createCommandPool();
+	createVertexBuffer();
 	createCommandBuffers();
 	createSyncObjects();
 }
 
+void HelloTriangleApplication::createVertexBuffer()
+{
+
+}
+// Recreates the swap chain when its no longer compatible, like the window size changing
+void HelloTriangleApplication::recreateSwapChain() 
+{
+	device.waitIdle();
+
+	cleanupSwapChain();
+	createSwapChain();
+	createImageViews();
+}
+
+// Creates all the sync objects like semaphores and fences to keep the GPU and CPU in sync
 void HelloTriangleApplication::createSyncObjects()
 {
 	assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
@@ -397,7 +451,15 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 	vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-	vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+	auto bindingDescription = Vertex::getBindingDescription();
+	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+	vk::PipelineVertexInputStateCreateInfo vertexInputInfo
+	{
+		.vertexBindingDescriptionCount = 1,
+		.pVertexBindingDescriptions = &bindingDescription,
+		.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+		.pVertexAttributeDescriptions = attributeDescriptions.data()
+	};
 
 	/*---------- Specifying dynamic states ----------*/
 
@@ -733,9 +795,15 @@ void HelloTriangleApplication::drawFrame()
 // Cleanup Vulkan resources
 void HelloTriangleApplication::cleanup()
 {
-	glfwDestroyWindow(window);
+	cleanupSwapChain();
 
+	glfwDestroyWindow(window);
 	glfwTerminate();
+}
+
+void HelloTriangleApplication::cleanupSwapChain() {
+	swapChainImageViews.clear();
+	swapChain == nullptr;
 }
 
 /*---------- VALIDATION LAYERS / DEBUG ----------*/

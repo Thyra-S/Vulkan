@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <vector>
 #include <limits>
+#include <glm/glm.hpp>
 
 #define VULKAN_HPP_NO_CONSTRUCTORS
 #if defined(__INTELLISENSE__) || !defined(USE_CPP20_MODULES) 
@@ -81,6 +82,13 @@ private:
 	// initialize Vulkan instance
     void initVulkan();
 
+	// Create the vertex buffer for storing vertex data on the GPU
+	void createVertexBuffer();
+
+	// Recreates the swap chain when its no longer compatible, like the window size changing
+	void recreateSwapChain();
+
+	// Creates all the sync objects like semaphores and fences to keep the GPU and CPU in sync
 	void createSyncObjects();
 
 	// create Vulkan instance
@@ -167,6 +175,9 @@ private:
 
 	// cleanup Vulkan resources
 	void cleanup();
+
+	// cleanup swapchain resources for 
+	void cleanupSwapChain();
 
 	/*---------- VALIDATION LAYERS / DEBUG ----------*/
 
